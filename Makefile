@@ -15,18 +15,13 @@ INC_DIR=./include
 BIN_DIR=./bin
 SRC_DIR=./src
 
-all: mthread.o regra2 regran
+all: mthread.o libmthread.a
 
-mthread.o: #dependências para a regra1
+libmthread.a: mthread.o
+	ar ruv $(LIB_DIR)/libmthread.a $(BIN_DIR)/mthread.o
+
+mthread.o:
 	$(CC) -o $(BIN_DIR)/mthread.o -c $(SRC_DIR)/mthread.c -Wall
-
-regra2: #dependências para a regra2
-	$(CC) -o $(BIN_DIR)regra2 $(SRC_DIR)regra2.c -Wall
-
-regran: #dependências para a regran
-	$(CC) -o $(BIN_DIR)regran $(SRC_DIR)regran.c -Wall
 
 clean:
 	rm -rf $(LIB_DIR)/*.a $(BIN_DIR)/*.o $(SRC_DIR)/*~ $(INC_DIR)/*~ *~
-
-
