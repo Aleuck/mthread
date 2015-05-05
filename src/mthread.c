@@ -35,7 +35,7 @@ static TCB_waiting_queue *waiting_queue = NULL;
 
 // PRIVATE FUNCTIONS
 
-static int add_to_queue(TCB_t *thread) {
+static void add_to_queue(TCB_t *thread) {
 	TCB_queue *queue;
 	queue = &(mqueues[thread->prio]);
 	thread->next = NULL;
@@ -49,7 +49,7 @@ static int add_to_queue(TCB_t *thread) {
 		queue->first = thread;
 	}
 	thread->state = STATE_READY;
-	return 0;
+	return;
 }
 
 static TCB_t *remove_from_queue() {
@@ -86,27 +86,30 @@ static int run_next() {
 	return -1;
 }
 
-static int add_waiting(int tid, TCB_t *thread) {
-	TCB_waiting_queue **pos = &waiting_queue;
-	while (*pos != NULL) {
-		if ((*pos)->tid == tid) {
-			thread->next = (*pos)->first;
-			(*pos)->first = thread;
+static int create_waiting_list(int tid) {
+	TCB_waiting_queue *new_waiting_queue = malloc(sizeof(TCB_waiting_queue));
+	if (new_waiting_queue == NULL)
+		return -1;
+	new_waiting_queue->tid = tid;
+	new_waiting_queue->first = NULL;
+	new_waiting_queue->next = waiting_queue;
+	waiting_queue = new_waiting_queue;
+	return 0;
+}
+
+// return -1 when tid does not exist (already finished?)
+static int add_to_waiting(int tid, TCB_t *thread) {
+	TCB_waiting_queue *pos = waiting_queue;
+	while (pos != NULL) {
+		if (pos->tid == tid) {
+			thread->next = pos->first;
+			pos->first = thread;
 			thread->state = STATE_BLOCKED;
 			return 0;
 		}
-		pos = &((*pos)->next);
+		pos = pos->next;
 	}
-	*pos = malloc(sizeof(TCB_waiting_queue));
-	if (*pos == NULL) {
-		return -1;
-	}
-	(*pos)->tid = tid;
-	(*pos)->first = thread;
-	(*pos)->next = NULL;
-	thread->next = NULL;
-	thread->state = STATE_BLOCKED;
-	return 0;
+	return -1;
 }
 
 static void on_thread_exit() {
@@ -123,11 +126,10 @@ static void on_thread_exit() {
 				pos->first = waiting_thread->next;
 				add_to_queue(waiting_thread);
 			}
-			if (prev != NULL) {
-				prev->next = pos->next;
-			}
 			if (pos == waiting_queue) {
-				waiting_queue = NULL;
+				waiting_queue = pos->next;
+			} else {
+				prev->next = pos->next;
 			}
 			free(pos);
 			break;
@@ -135,8 +137,6 @@ static void on_thread_exit() {
 		prev = pos;
 		pos = pos->next;
 	}
-	// free(running->context.uc_stack.ss_sp);
-	// free(running);
 	run_next();
 }
 
@@ -181,17 +181,23 @@ int mcreate(int prio, void (*start)(void*), void *arg) {
 		free(thread);
 		return -1;
 	}
+
 	thread->tid   = ++last_tid;
 	thread->state = STATE_CREATION;
 	thread->prio  = prio;
 
+	if (create_waiting_list(last_tid) != 0) {
+		free(thread);
+		free(stack);
+		--last_tid;
+		return -1;
+	}
 	getcontext(&(thread->context));
 	thread->context.uc_link = &end_context;
 	thread->context.uc_stack.ss_sp = stack;
 	thread->context.uc_stack.ss_size = sizeof(char) * SIGSTKSZ;
 	makecontext(&(thread->context), (void (*)(void)) start, 1, arg);
 	add_to_queue(thread);
-
 	return last_tid;
 }
 int myield(void) {
@@ -205,8 +211,9 @@ int mwait(int tid) {
 	if (running == NULL) {
 		if (init_() == -1) return -1;
 	}
-	running->state = STATE_BLOCKED;
-	add_waiting(tid,running);
+	if (add_to_waiting(tid,running) != 0) {
+		add_to_queue(running);
+	}
 	return run_next();
 }
 int mmutex_init(mmutex_t *mtx) {

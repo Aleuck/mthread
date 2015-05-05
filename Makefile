@@ -21,7 +21,7 @@ libmthread.a: mthread.o
 	ar ruv $(LIB_DIR)/libmthread.a $(BIN_DIR)/mthread.o
 
 mthread.o:
-	$(CC) -o $(BIN_DIR)/mthread.o -c $(SRC_DIR)/mthread.c -Wall
+	$(CC) -o $(BIN_DIR)/mthread.o -g -c $(SRC_DIR)/mthread.c -Wall
 
 clean:
 	rm -rf $(LIB_DIR)/*.a $(BIN_DIR)/*.o $(SRC_DIR)/*~ $(INC_DIR)/*~ *~
