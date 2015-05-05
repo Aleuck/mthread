@@ -35,6 +35,7 @@ static TCB_waiting_queue *waiting_queue = NULL;
 
 // PRIVATE FUNCTIONS
 
+// adiciona à fila de aptos da prioridade correspondente
 static void add_to_queue(TCB_t *thread) {
 	TCB_queue *queue;
 	queue = &(mqueues[thread->prio]);
@@ -52,6 +53,7 @@ static void add_to_queue(TCB_t *thread) {
 	return;
 }
 
+// remove da fila e retorna o TCB de mais alta prioridade que estiver no inicio da fila
 static TCB_t *remove_from_queue() {
 	TCB_t *thread = NULL;
 	int i;
@@ -70,6 +72,7 @@ static TCB_t *remove_from_queue() {
 	return thread;
 }
 
+//
 static int run_next() {
 	TCB_t *thread = running;
 	running = remove_from_queue();
@@ -140,13 +143,17 @@ static void on_thread_exit() {
 	run_next();
 }
 
-int init_() {
+static
+
+static int init_() {
 	static char stack[SIGSTKSZ];
-	getcontext(&main_thread.context);
+	if (getcontext(&(main_thread.context)) != 0) {
+		return -1;
+	}
 	running = &main_thread;
 	if (getcontext(&end_context) != 0) {
 		return -1;
-	};
+	}
 	end_context.uc_stack.ss_sp = stack;
 	end_context.uc_stack.ss_size = sizeof(stack);
 	makecontext(&end_context, on_thread_exit, 0);
@@ -217,7 +224,13 @@ int mwait(int tid) {
 	return run_next();
 }
 int mmutex_init(mmutex_t *mtx) {
-	return -1; // ERROU
+	mtx = malloc(sizeof(mmutex_t));
+	if (mtx == NULL)
+		return -1;
+	mtx->flag = 0;
+	mtx->first = NULL;
+	mtx->last = NULL;
+	return 0;
 }
 int mlock (mmutex_t *mtx) {
 	return -1; // ERROU
