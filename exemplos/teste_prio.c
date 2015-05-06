@@ -1,11 +1,11 @@
-/*
+/* 
  * test_vetor.c: realiza a criação de 10 threads, cada uma delas escreve uma
  * sequencia de 20 letras iguais e passa a vez para outra thread. Repete até
  * preencher um vetor de 250 caracteres.
  *
  * A diferença em relação a anterior que é a primeira, quarta, setima e a décima
  * thread são criadas com a prioridade 0 (alta), a segunda, quinta, oitava thread
- * com prioridade 1 (média) e a terceira, sexta e nona thread com prioridade 2
+ * com prioridade 1 (média) e a terceira, sexta e nona thread com prioridade 2 
  * (baixa). Isso altera a saída do programa em questão.
  */
 
@@ -37,7 +37,7 @@ void *func(void *arg){
 int main(int argc, char *argv[]) {
     int i, pid[MAX_THR];
 
-
+  
     for (i = 0; i < MAX_THR; i++) {
         pid[i] = mcreate((i%3), func, (void *)('A'+i));
        if ( pid[i] == -1) {
@@ -46,15 +46,15 @@ int main(int argc, char *argv[]) {
        }
      }
 
-    for (i = 0; i < MAX_THR; i++)
+    for (i = 0; i < MAX_THR; i++) 
          mwait(pid[i]);
 
-    for (i = 0; i < MAX_SIZE; i++) {
+    for (i = 0; i < MAX_SIZE; i++) {    
         if ( (i % 20) == 0 )
            printf("\n");
         printf("%c", (char)vetor[i]);
     }
-
+      
     printf("\nConcluido vetor de letras com priuoridades...\n");
     exit(0);
 }

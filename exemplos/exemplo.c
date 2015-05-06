@@ -8,7 +8,6 @@
  *
  */
 
-#include <stdio.h>
 #include "../include/mthread.h"
 
 void* func0(void *arg) {

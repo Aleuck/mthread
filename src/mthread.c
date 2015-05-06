@@ -143,8 +143,6 @@ static void on_thread_exit() {
 	run_next();
 }
 
-static
-
 static int init_() {
 	static char stack[SIGSTKSZ];
 	if (getcontext(&(main_thread.context)) != 0) {
@@ -166,15 +164,16 @@ int mcreate(int prio, void (*start)(void*), void *arg) {
 
 	static int last_tid = 0;
 
-	char *stack;
+	char *stack; // stack for thread context
 	TCB_t* thread;
 
-	if (prio < 0 || prio > 2)
-		return -1; // ERROU
-
+	// initialize if needed
 	if (running == NULL) {
 		if (init_() == -1) return -1;
 	}
+
+	if (prio < 0 || prio > 2)
+		return -1; // ERROU
 
 	thread = malloc(sizeof(TCB_t));
 	if (thread == NULL) {
@@ -189,17 +188,26 @@ int mcreate(int prio, void (*start)(void*), void *arg) {
 		return -1;
 	}
 
+	// initialize thread
 	thread->tid   = ++last_tid;
 	thread->state = STATE_CREATION;
 	thread->prio  = prio;
 
+	if (getcontext(&(thread->context)) != 0) {
+		free(thread);
+		free(stack);
+		return -1;
+	}
+
+	// create waiting list for thread
 	if (create_waiting_list(last_tid) != 0) {
 		free(thread);
 		free(stack);
 		--last_tid;
 		return -1;
 	}
-	getcontext(&(thread->context));
+
+	// initialize thread context
 	thread->context.uc_link = &end_context;
 	thread->context.uc_stack.ss_sp = stack;
 	thread->context.uc_stack.ss_size = sizeof(char) * SIGSTKSZ;
@@ -208,6 +216,7 @@ int mcreate(int prio, void (*start)(void*), void *arg) {
 	return last_tid;
 }
 int myield(void) {
+	// initialize if needed
 	if (running == NULL) {
 		if (init_() == -1) return -1;
 	}
@@ -215,6 +224,7 @@ int myield(void) {
 	return run_next();
 }
 int mwait(int tid) {
+	// initialize if needed
 	if (running == NULL) {
 		if (init_() == -1) return -1;
 	}
@@ -223,8 +233,11 @@ int mwait(int tid) {
 	}
 	return run_next();
 }
+
+
+
 int mmutex_init(mmutex_t *mtx) {
-	mtx = malloc(sizeof(mmutex_t));
+	// just initialize the structure
 	if (mtx == NULL)
 		return -1;
 	mtx->flag = 0;
@@ -233,8 +246,39 @@ int mmutex_init(mmutex_t *mtx) {
 	return 0;
 }
 int mlock (mmutex_t *mtx) {
-	return -1; // ERROU
+	if (mtx->flag == 0) {
+		// the area is clear, just set the flag and run
+		mtx->flag = 1;
+		return 0;
+	} else {
+		// the flag is set, add to the waiting list
+		running->state = STATE_BLOCKED;
+		if (mtx->last != NULL) {
+			running->prev = mtx->last;
+			mtx->last->next = running;
+		} else {
+			mtx->first = running;
+		}
+		mtx->last = running;
+		return run_next();
+	}
 }
 int munlock (mmutex_t *mtx) {
-	return -1; // ERROU
+	TCB_t *thread;
+	if (mtx->first != NULL) {
+		// threads waiting liberation
+		// set first as ready
+		thread = mtx->first;
+		mtx->first = thread->next;
+		if (mtx->first != NULL) {
+			mtx->first->prev = NULL;
+		} else {
+			mtx->last = NULL;
+		}
+		add_to_queue(thread);
+	} else {
+		// no threads waiting, unlock
+		mtx->flag = 0;
+	}
+	return 0;
 }
